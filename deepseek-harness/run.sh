@@ -7,7 +7,6 @@ cd "$(dirname "$0")"
 IMAGE_NAME="${IMAGE_NAME:-dsh}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 CONTAINER_NAME="${CONTAINER_NAME:-dsh}"
-HOST_PORT="${HOST_PORT:-3080}"
 # npm mirror, override freely, e.g. NPM_REGISTRY=https://registry.npmjs.org
 NPM_REGISTRY="${NPM_REGISTRY:-https://registry.npmmirror.com}"
 # config dir mounted into the container (persisted config/plugins/sessions)
@@ -21,13 +20,15 @@ case "${1:-run}" in
     ;;
   run)
     docker build --build-arg NPM_REGISTRY="$NPM_REGISTRY" -t "$IMAGE_NAME:$IMAGE_TAG" .
+    # dsh refuses to bind 0.0.0.0 (RCE risk), so it listens on 127.0.0.1 inside
+    # the container; use host network to make that reachable on the host.
     docker run -d --name "$CONTAINER_NAME" \
-      -p "$HOST_PORT":3080 \
+      --network host \
       -v "$CONFIG_DIR":/data/dsh \
       -e NPM_REGISTRY="$NPM_REGISTRY" \
       --restart unless-stopped \
       "$IMAGE_NAME:$IMAGE_TAG"
-    echo "dsh web UI: http://127.0.0.1:$HOST_PORT"
+    echo "dsh web UI: http://127.0.0.1:3080 (host network mode)"
     echo "config dir: $CONFIG_DIR"
     ;;
   stop)
@@ -41,7 +42,7 @@ case "${1:-run}" in
     ;;
   *)
     echo "Usage: $0 {build|run|stop|logs|shell}"
-    echo "Env: IMAGE_NAME IMAGE_TAG CONTAINER_NAME HOST_PORT NPM_REGISTRY CONFIG_DIR"
+    echo "Env: IMAGE_NAME IMAGE_TAG CONTAINER_NAME NPM_REGISTRY CONFIG_DIR"
     exit 1
     ;;
 esac

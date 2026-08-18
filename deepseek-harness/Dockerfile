@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 FROM node:22-bookworm-slim
 
 # npm registry: default to npmmirror (China mirror), override via build arg / env
@@ -18,8 +17,9 @@ RUN mkdir -p /data/dsh && chown -R node:node /data/dsh
 USER node
 WORKDIR /data/dsh
 
-ENV DSH_HOST=0.0.0.0
+ENV DSH_HOST=127.0.0.1
 EXPOSE 3080
 
-# Web UI; override command for other subcommands (dsh --help)
-CMD ["dsh", "web", "--host", "0.0.0.0"]
+# dsh intentionally refuses to bind 0.0.0.0 (RCE risk). Use --network host so
+# 127.0.0.1:3080 on the host reaches it; override command for other subcommands.
+CMD ["dsh", "web"]

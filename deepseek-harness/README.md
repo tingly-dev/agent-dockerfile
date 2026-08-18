@@ -56,11 +56,14 @@ CONFIG_DIR=/srv/dsh ./run.sh run
 
 ```bash
 docker build --build-arg NPM_REGISTRY=https://registry.npmmirror.com -t dsh .
-docker run -d --name dsh -p 3080:3080 \
+docker run -d --name dsh --network host \
   -v "$PWD/data/dsh":/data/dsh \
   -e NPM_REGISTRY=https://registry.npmmirror.com \
   dsh
 ```
+
+> dsh 出于安全考虑拒绝绑定 `0.0.0.0`(Web UI 可执行代码,RCE 风险),容器内只监听
+> `127.0.0.1:3080`,因此使用 `--network host` 让宿主机可访问。
 
 ## 说明
 
