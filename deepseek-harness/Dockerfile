@@ -5,11 +5,11 @@ FROM node:22-bookworm-slim
 ARG NPM_REGISTRY=https://registry.npmmirror.com
 ENV NPM_REGISTRY=${NPM_REGISTRY}
 
-RUN set -eux; \
+RUN --mount=type=cache,target=/root/.npm \
+    set -eux; \
     printf 'registry=%s\n' "$NPM_REGISTRY" > /usr/local/etc/npmrc; \
     npm config set registry "$NPM_REGISTRY"; \
-    npm install -g @deepseek-ai/dsh; \
-    npm cache clean --force
+    npm install -g @deepseek-ai/dsh
 
 # dsh home: mount here to persist config/plugins/sessions
 ENV DSH_HOME=/data/dsh
