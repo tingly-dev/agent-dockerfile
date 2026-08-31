@@ -23,6 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: docker/setup-qemu-action@v3
+
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
@@ -32,22 +34,38 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # resolve the current "latest" dsh version once, up front, so the build
+      # is pinned to a concrete version and the image can be tagged with it
+      # (otherwise every rebuild silently floats to whatever npm has that day).
+      - id: dsh_version
+        run: |
+          set -euo pipefail
+          version=$(curl -fsSL https://registry.npmjs.org/@deepseek-ai/dsh | jq -r '."dist-tags".latest')
+          if [ -z "$version" ] || [ "$version" = "null" ]; then
+            echo "failed to resolve @deepseek-ai/dsh latest version" >&2
+            exit 1
+          fi
+          echo "version=$version" | tee -a "$GITHUB_OUTPUT"
+
       - id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=sha-
+            type=raw,value=${{ steps.dsh_version.outputs.version }}
 
       - uses: docker/build-push-action@v6
         with:
           context: deepseek-harness
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           # npm mirror default; set NPM_REGISTRY var in repo settings to override
+          # DSH_VERSION pinned to the version resolved above for reproducibility
           build-args: |
             NPM_REGISTRY=${{ vars.NPM_REGISTRY || 'https://registry.npmmirror.com' }}
+            DSH_VERSION=${{ steps.dsh_version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

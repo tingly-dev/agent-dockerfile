@@ -6,7 +6,7 @@
 
 | 文件 | 作用 |
 |---|---|
-| `Dockerfile` | 基于 `node:22-bookworm-slim`,全局安装 `@deepseek-ai/dsh` |
+| `Dockerfile` | 基于 `node:22-bookworm-slim`,全局安装 `@deepseek-ai/dsh`;同时带 git/vim/build-essential/pnpm,一个镜像兼顾日常使用和插件开发 |
 | `run.sh` | 构建/启动/停止/看日志/进容器的辅助脚本 |
 | `data/dsh/` | 挂载的配置目录(自动创建),容器内路径 `/data/dsh` |
 
@@ -40,6 +40,20 @@ CONFIG_DIR=/srv/dsh ./run.sh run
 
 删除容器后重建,数据仍在。
 
+## 插件开发
+
+镜像里已经装好 git / vim / build-essential / pnpm(`dsh plugin` 子命令会转发给 pnpm),不需要单独一个开发镜像。挂载本地插件源码目录:
+
+```bash
+PLUGIN_DIR=~/code/my-dsh-plugin ./run.sh run
+```
+
+容器内路径固定为 `/data/dsh/plugin-src`。进容器操作(装依赖、`pnpm link`、跑 `dsh plugin --profile <name> add ...` 等):
+
+```bash
+./run.sh shell
+```
+
 ## 常用命令
 
 ```bash
@@ -50,7 +64,7 @@ CONFIG_DIR=/srv/dsh ./run.sh run
 ./run.sh shell     # 进入容器 shell
 ```
 
-可调环境变量:`IMAGE_NAME` `IMAGE_TAG` `CONTAINER_NAME` `HOST_PORT` `NPM_REGISTRY` `CONFIG_DIR`。
+可调环境变量:`IMAGE_NAME` `IMAGE_TAG` `CONTAINER_NAME` `HOST_PORT` `NPM_REGISTRY` `CONFIG_DIR` `PLUGIN_DIR`。
 
 ## 手动 docker 命令
 

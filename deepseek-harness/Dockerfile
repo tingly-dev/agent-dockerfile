@@ -4,11 +4,32 @@ FROM node:22-bookworm-slim
 ARG NPM_REGISTRY=https://registry.npmmirror.com
 ENV NPM_REGISTRY=${NPM_REGISTRY}
 
+# dev tools for plugin development: git (clone/pull plugin repos), vim (quick
+# in-container edits), build-essential (native module compiles via pnpm).
+# Small footprint, kept in the same image so one image serves both plain
+# usage and plugin dev — no need to maintain a second image.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends git vim build-essential ca-certificates; \
+    rm -rf /var/lib/apt/lists/*
+
+# pnpm: dsh forwards `dsh plugin ...` to pnpm inside the profile dir
 RUN --mount=type=cache,target=/root/.npm \
     set -eux; \
     printf 'registry=%s\n' "$NPM_REGISTRY" > /usr/local/etc/npmrc; \
     npm config set registry "$NPM_REGISTRY"; \
-    npm install -g @deepseek-ai/dsh
+    corepack enable; \
+    corepack prepare pnpm@latest --activate; \
+    pnpm config set registry "$NPM_REGISTRY" --global
+
+# dsh version to install: pin to a resolved version for reproducible builds;
+# defaults to "latest" for ad-hoc local builds (CI resolves and pins this).
+ARG DSH_VERSION=latest
+
+RUN --mount=type=cache,target=/root/.npm \
+    npm install -g "@deepseek-ai/dsh@${DSH_VERSION}"
 
 # dsh home: mount here to persist config/plugins/sessions
 ENV DSH_HOME=/data/dsh
