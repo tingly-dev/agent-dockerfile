@@ -11,8 +11,19 @@ CONTAINER_NAME="${CONTAINER_NAME:-dsh}"
 NPM_REGISTRY="${NPM_REGISTRY:-https://registry.npmmirror.com}"
 # config dir mounted into the container (persisted config/plugins/sessions)
 CONFIG_DIR="${CONFIG_DIR:-$PWD/data/dsh}"
+# optional: local plugin source dir for plugin development, mounted into the
+# container so you can `dsh plugin --profile <name> add /data/dsh/plugin-src/<pkg>`
+# or pnpm-link it from inside the container (see: run.sh shell). Unset by default.
+PLUGIN_DIR="${PLUGIN_DIR:-}"
 
 mkdir -p "$CONFIG_DIR"
+
+# extra -v args, appended only when PLUGIN_DIR is set
+MOUNT_ARGS=()
+if [[ -n "$PLUGIN_DIR" ]]; then
+  mkdir -p "$PLUGIN_DIR"
+  MOUNT_ARGS+=(-v "$PLUGIN_DIR:/data/dsh/plugin-src")
+fi
 
 case "${1:-run}" in
   build)
@@ -25,11 +36,13 @@ case "${1:-run}" in
     docker run -d --name "$CONTAINER_NAME" \
       --network host \
       -v "$CONFIG_DIR":/data/dsh \
+      "${MOUNT_ARGS[@]}" \
       -e NPM_REGISTRY="$NPM_REGISTRY" \
       --restart unless-stopped \
       "$IMAGE_NAME:$IMAGE_TAG"
     echo "dsh web UI: http://127.0.0.1:3080 (host network mode)"
     echo "config dir: $CONFIG_DIR"
+    [[ -n "$PLUGIN_DIR" ]] && echo "plugin source dir: $PLUGIN_DIR -> /data/dsh/plugin-src"
     ;;
   stop)
     docker rm -f "$CONTAINER_NAME"
@@ -42,7 +55,7 @@ case "${1:-run}" in
     ;;
   *)
     echo "Usage: $0 {build|run|stop|logs|shell}"
-    echo "Env: IMAGE_NAME IMAGE_TAG CONTAINER_NAME NPM_REGISTRY CONFIG_DIR"
+    echo "Env: IMAGE_NAME IMAGE_TAG CONTAINER_NAME NPM_REGISTRY CONFIG_DIR PLUGIN_DIR"
     exit 1
     ;;
 esac
